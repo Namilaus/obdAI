@@ -102,6 +102,7 @@ impl RecorderHandle {
         let status=Arc::new(Mutex::new(RecordingStatus::default())); let worker_status=status.clone();
         std::thread::Builder::new().name("diagnostic-recordings".into()).spawn(move || {
             let store=match RecordingStore::open(&path) { Ok(s)=>s,Err(e)=>{let _=ready_send.send(Err(e));return;} };
+            if let Err(e)=crate::ai::HistoryStore::initialize(&store) {let _=ready_send.send(Err(e));return;}
             let mut recorder=Recorder::new(store,worker_cache);
             let _=ready_send.send(Ok(()));
             loop {
