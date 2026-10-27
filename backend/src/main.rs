@@ -138,7 +138,12 @@ fn main() {
             bridge::recordings::recording_status,bridge::recordings::recording_list,
             bridge::recordings::recording_metrics,bridge::recordings::recording_samples,
             bridge::recordings::recording_summary,bridge::recordings::recording_assign_vehicle,
-            bridge::recordings::recording_delete_preview,bridge::recordings::recording_delete
+            bridge::recordings::recording_delete_preview,bridge::recordings::recording_delete,
+            bridge::ai::ai_preferences_get,bridge::ai::ai_preferences_set,bridge::ai::ai_key_status,
+            bridge::ai::ai_key_set,bridge::ai::ai_key_remove,bridge::ai::ai_disclosure_accept,
+            bridge::ai::ai_models_refresh,bridge::ai::ai_model_test,bridge::ai::ai_conversation_create,
+            bridge::ai::ai_conversation_list,bridge::ai::ai_conversation_get,bridge::ai::ai_conversation_delete,
+            bridge::ai::ai_message_send,bridge::ai::ai_turn_cancel
         ])
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
@@ -152,7 +157,10 @@ fn main() {
             APP_DATA_DIR.get_or_init(|| app_data_dir.clone());
             std::fs::create_dir_all(&app_data_dir)?;
             match obdium::recording::RecorderHandle::open(&app_data_dir.join("diagnostics.sqlite3")) {
-                Ok(recorder)=>{let _=obdium::recording::ACTIVE_RECORDER.set(recorder);}
+                Ok(recorder)=>{
+                    if let Ok(service)=obdium::ai::AssistantService::network(recorder.clone()){let _=obdium::ai::AI_SERVICE.set(service);}
+                    let _=obdium::recording::ACTIVE_RECORDER.set(recorder);
+                }
                 Err(_)=>eprintln!("Local recording storage is unavailable; scanner features remain available."),
             }
             let db_path = vpic_db_path().unwrap();
@@ -189,6 +197,7 @@ fn main() {
         })
         .on_window_event(|window,event| {
             if let tauri::WindowEvent::CloseRequested{api,..}=event {
+                if let Some(service)=obdium::ai::AI_SERVICE.get(){service.cancel_all();}
                 if let Some(handle)=obdium::recording::ACTIVE_RECORDER.get() {
                     if handle.call(|r|{if r.status().recording {r.stop("shutdown",obdium::recording::Timestamp::now())?;}Ok(())}).is_err() {
                         api.prevent_close();

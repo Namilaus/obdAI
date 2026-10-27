@@ -34,6 +34,8 @@ impl AssistantService{
     pub fn cancel_conversation(&self,id:&str){for active in self.active.lock().unwrap().values(){if active.conversation_id==id{active.cancel.cancel();}}}
     pub fn cancel_provider(&self,provider:ProviderId){for active in self.active.lock().unwrap().values(){if active.provider==provider{active.cancel.cancel();}}}
     pub fn cancel_all(&self){for active in self.active.lock().unwrap().values(){active.cancel.cancel();}}
+    pub fn register_auxiliary(&self,provider:ProviderId)->(String,CancellationToken){let id=uuid::Uuid::new_v4().to_string();let cancel=CancellationToken::new();self.active.lock().unwrap().insert(id.clone(),ActiveTurn{conversation_id:String::new(),provider,cancel:cancel.clone()});(id,cancel)}
+    pub fn finish_auxiliary(&self,id:&str){self.active.lock().unwrap().remove(id);}
     pub async fn send(self:&Arc<Self>,id:String,text:String,sink:ChatEventSink)->Result<String,AiError>{
         let read_id=id.clone();let(chat,preferences)=self.read(move|store|Ok((HistoryStore::new(store).get(&read_id)?,SettingsStore::new(store).load()?))).await?;
         Self::eligible(&chat,&preferences)?;
@@ -45,8 +47,9 @@ impl AssistantService{
         self.active.lock().unwrap().insert(turn_id.clone(),ActiveTurn{conversation_id:lease.conversation_id.clone(),provider,cancel:cancel.clone()});
         let service=self.clone();tokio::spawn(async move{
             let result=tokio::time::timeout(Duration::from_secs(180),service.run_lease(&lease,&secret,provider,revision,cancel.clone(),sink.clone())).await;
-            let (status,error)=match result{Ok(Ok(status))=>(status,None),Ok(Err(error))=>(if error.code=="cancelled"{"cancelled"}else{"error"}.into(),Some(error)),Err(_)=>{cancel.cancel();("error".into(),Some(AiError::new("timeout","This investigation timed out. Available results are saved; retry only when appropriate.")))}};
-            let finish_lease=lease.clone();let finish_status=status.clone();let _=service.database(move|r|{let history=HistoryStore::new(&r.store);history.ensure_lease(&finish_lease)?;history.finish(&finish_lease,&finish_status)}).await;
+            let (mut status,mut error)=match result{Ok(Ok(status))=>(status,None),Ok(Err(error))=>(if error.code=="cancelled"{"cancelled"}else{"error"}.into(),Some(error)),Err(_)=>{cancel.cancel();("error".into(),Some(AiError::new("timeout","This investigation timed out. Available results are saved; retry only when appropriate.")))}};
+            let finish_lease=lease.clone();let finish_status=status.clone();let saved=service.database(move|r|{let history=HistoryStore::new(&r.store);history.ensure_lease(&finish_lease)?;history.finish(&finish_lease,&finish_status)}).await;
+            if let Err(e)=saved {status=if ["cancelled","deleted"].contains(&e.code){"cancelled"}else{"error"}.into();error=Some(e);}
             service.active.lock().unwrap().remove(&lease.turn_id);
             sink(ChatEvent{conversation_id:lease.conversation_id,turn_id:lease.turn_id,kind:status,text:error.as_ref().map(|e|e.message.clone()).unwrap_or_default(),details:error.map(|e|json!({"code":e.code}))});
         });Ok(turn_id)
@@ -103,3 +106,4 @@ impl AssistantService{
         self.limit(lease,&sink).await
     }
 }
+

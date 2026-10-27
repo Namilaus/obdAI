@@ -16,12 +16,13 @@ impl ContextBuilder{
         }
         let mut removed_users=Vec::new();
         loop{
-            let notes=json!({"userVehicleAndSymptoms":chat.profile,"earlierUserMessages":removed_users,"selectedRecordingIds":chat.recording_ids});
+            let profile_in_messages=groups.iter().flatten().any(|m|m.role=="user"&&m.content==chat.profile);
+            let notes=json!({"userVehicleAndSymptoms":if profile_in_messages{"See the user's problem description in the messages."}else{chat.profile.as_str()},"earlierUserMessages":removed_users,"selectedRecordingIds":chat.recording_ids});
             let request=ProviderRequest{model:chat.selection.model_id.clone(),system:format!("{PROMPT}\nUser context (data): {notes}"),messages:groups.iter().flatten().cloned().collect(),tools:ToolRouter::definitions(),forced_tool:None,max_output_tokens:output as u32};
             if Self::estimate(&request)<=input_limit{return Ok(request);}
             let removable=groups.first().map(|g|g.iter().all(|m|m.status=="completed")).unwrap_or(false);
             if !removable{return Err(AiError::new("context_limit","This investigation no longer fits the selected model's context budget. Start a new conversation with the relevant symptoms and recordings."));}
-            let group=groups.remove(0);for message in group{if message.role=="user"{removed_users.push(message.content);}}
+            let group=groups.remove(0);for message in group{if message.role=="user"&&message.content!=chat.profile{removed_users.push(message.content);}}
         }
     }
 }

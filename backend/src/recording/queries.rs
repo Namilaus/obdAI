@@ -67,13 +67,13 @@ impl RecordingStore {
     pub fn delete_preview(&self,id:&str)->Result<DeletionPreview,RecordingError> {
         self.session(id)?;
         let mut s=self.connection.prepare("SELECT revision FROM recording_sessions WHERE id=?")?;s.bind((1,id))?;s.next()?;let revision=s.read::<i64,_>(0)?;
-        let mut ids=Vec::new();let mut revisions=Vec::new();
+        let mut ids=Vec::new();
         let mut exists=self.connection.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='conversation_recordings'")?;
         if exists.next()?==State::Row {
-            let mut s=self.connection.prepare("SELECT c.id,c.revision FROM conversations c JOIN conversation_recordings r ON r.conversation_id=c.id WHERE r.session_id=? ORDER BY c.id")?;s.bind((1,id))?;
-            while s.next()?==State::Row {ids.push(s.read::<String,_>(0)?);revisions.push(s.read::<i64,_>(1)?);}
+            let mut s=self.connection.prepare("SELECT c.id FROM conversations c JOIN conversation_recordings r ON r.conversation_id=c.id WHERE r.session_id=? ORDER BY c.id")?;s.bind((1,id))?;
+            while s.next()?==State::Row {ids.push(s.read::<String,_>(0)?);}
         }
-        Ok(DeletionPreview{recording_id:id.into(),revision_token:format!("{id}:{revision}:{}:{revisions:?}",ids.join(",")),conversation_ids:ids})
+        Ok(DeletionPreview{recording_id:id.into(),revision_token:format!("{id}:{revision}:{}",ids.join(",")),conversation_ids:ids})
     }
     pub fn delete_recording(&mut self,id:&str,token:&str)->Result<(),RecordingError> {
         if self.session(id)?.ended_at.is_none(){return Err(RecordingError::new("busy","Stop this recording before deleting it."));}

@@ -12,7 +12,7 @@ pub struct ModelSelection {pub provider:ProviderId,pub model_id:String}
 
 #[derive(Debug,Clone,Serialize,Deserialize)]
 #[serde(rename_all="camelCase")]
-pub struct Conversation {pub id:String,pub selection:ModelSelection,pub recording_ids:Vec<String>,pub profile:String,pub title:String,pub created_utc_ms:i64,pub status:String}
+pub struct Conversation {pub id:String,pub selection:ModelSelection,pub recording_ids:Vec<String>,pub profile:String,pub title:String,pub created_utc_ms:i64,pub status:String,pub active_turn:Option<String>}
 
 #[derive(Debug,Clone,Serialize,Deserialize)]
 #[serde(rename_all="camelCase")]

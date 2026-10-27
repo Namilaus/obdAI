@@ -8,11 +8,14 @@
     <script type="module" src="scripts/events.js"></script>
     <script type="module" src="scripts/settings.js"></script>
     <script type="module" src="scripts/recordings.js"></script>
+    <script type="module" src="scripts/ai-settings.js"></script>
+    <script type="module" src="scripts/ai-chat.js"></script>
     <script type="module" src="scripts/main.js"></script>
     <script type="module" src="scripts/features.js"></script>
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="layout.css" />
     <link rel="stylesheet" href="components/recordings.css" />
+    <link rel="stylesheet" href="components/ai.css" />
     <link rel="stylesheet" href="scrollbar.css" />
     <link rel="stylesheet" href="components/card.css" />
     <link rel="stylesheet" href="components/notification.css" />
@@ -66,6 +69,7 @@
 
     <div class="sidebar">
       <button class="sidebar-button" data-tooltip="RECORDINGS" data-screen="recordings" aria-label="Recordings">REC</button>
+      <button class="sidebar-button" data-tooltip="AI ASSISTANT" data-screen="ai-assistant" aria-label="AI assistant">AI</button>
       <button
         class="sidebar-button"
         data-tooltip="CONNECT"
@@ -322,6 +326,19 @@
         <span id="recording-status" role="status">Recording stopped</span>
       </div>
       <p id="recording-error" role="alert"></p>
+      <div id="ai-assistant" class="screen" style="display:none">
+        <div class="screen-label">Diagnostic assistant</div>
+        <div class="ai-toolbar"><button id="ai-new-chat">New conversation</button><span id="ai-conversation-meta"></span><button id="ai-open-settings">AI settings</button></div>
+        <div class="ai-layout">
+          <aside id="ai-history" class="ai-history" aria-label="Saved diagnostic conversations"></aside>
+          <div class="ai-conversation">
+            <div id="ai-messages" class="ai-messages" role="log" aria-label="Diagnostic conversation"></div>
+            <p id="ai-chat-feedback" role="alert"></p>
+            <div class="ai-compose"><textarea id="ai-message" rows="3" maxlength="8000" aria-label="Message the diagnostic assistant" placeholder="Describe symptoms, when they happen, and recent repairs…"></textarea><div class="ai-compose-actions"><button id="ai-send" disabled>Send</button><button id="ai-cancel" disabled>Cancel</button></div></div>
+            <div id="ai-usage" role="status"></div>
+          </div>
+        </div>
+      </div>
       <div id="recordings" class="screen" style="display:none">
         <div class="screen-label">Recordings</div>
         <p>Saved locally. Select recordings to use in a diagnostic conversation.</p>
@@ -810,6 +827,25 @@
 
       <div id="settings" class="screen" style="display: none">
         <div id="settings-header" class="screen-label">PREFERENCES</div>
+        <section class="ai-settings" aria-labelledby="ai-settings-title">
+          <h2 id="ai-settings-title">AI diagnosis</h2>
+          <label><input id="ai-enabled" type="checkbox" /> Enable the optional diagnostic assistant</label>
+          <p>Use your own provider account. Recording works locally with AI disabled. Your key is stored in the operating system credential store, or only in memory when you choose session-only storage.</p>
+          <div class="ai-settings-grid">
+            <label for="ai-provider">Provider</label><select id="ai-provider"><option value="openai">OpenAI</option><option value="anthropic">Claude (Anthropic)</option><option value="deepseek">DeepSeek</option></select>
+            <label for="ai-key">API key</label><input id="ai-key" type="password" autocomplete="off" spellcheck="false" placeholder="Enter a new or replacement API key" />
+          </div>
+          <div class="ai-settings-actions"><label><input id="ai-session-key" type="checkbox" /> Keep this key for this app session only</label><button id="ai-save-key">Save key</button><button id="ai-remove-key">Remove key</button></div>
+          <p id="ai-key-status" role="status">Checking key status…</p>
+          <div class="ai-settings-grid">
+            <label for="ai-model-list">Available models</label><select id="ai-model-list"><option value="">Refresh to discover models</option></select>
+            <label for="ai-model-id">Model ID</label><input id="ai-model-id" maxlength="256" spellcheck="false" placeholder="Choose a discovered model or enter its exact ID" />
+          </div>
+          <div class="ai-settings-actions"><button id="ai-refresh-models">Refresh models</button><button id="ai-test-model">Test tool compatibility</button><button id="ai-save-model">Save model preference</button></div>
+          <small id="ai-model-status">Test the selected model before diagnosing.</small>
+          <p>Compatibility testing sends a small synthetic request and may incur an API charge. Diagnosis sends your messages and retrieved data to the selected provider. Existing conversations keep their original provider and model.</p>
+          <p id="ai-settings-feedback" role="status"></p>
+        </section>
         <div class="connection-details">CONFIGURE SAVED SETTINGS, OPTIONS, AND PREFERENCES</div>
 
         <div style="display: flex">
@@ -1015,5 +1051,6 @@
 
   <script type="module" src="scripts/graphs.js"></script>
 </html>
+
 
 

@@ -14,7 +14,7 @@ impl<'a> HistoryStore<'a>{
         if ids.len()>10 || profile.chars().count()>8000 || selection.model_id.is_empty() || selection.model_id.len()>256 || selection.model_id.chars().any(char::is_control){return Err(AiError::new("invalid_input","Choose a model, up to 10 recordings, and a description up to 8,000 characters."));}
         let mut vehicle=None;
         for id in &ids {let session=self.store.session(id)?;if vehicle.as_ref().map(|v|v!=&session.vehicle_id).unwrap_or(false){return Err(AiError::new("vehicle_mismatch","Assign these recordings to the same vehicle before combining them."));}vehicle=Some(session.vehicle_id);}
-        let conversation=Conversation{id:uuid::Uuid::new_v4().to_string(),selection,recording_ids:ids.clone(),title:profile.chars().take(80).collect(),profile,created_utc_ms:chrono::Utc::now().timestamp_millis(),status:"ready".into()};
+        let conversation=Conversation{id:uuid::Uuid::new_v4().to_string(),selection,recording_ids:ids.clone(),title:profile.chars().take(80).collect(),profile,created_utc_ms:chrono::Utc::now().timestamp_millis(),status:"ready".into(),active_turn:None};
         self.store.connection.execute("BEGIN IMMEDIATE")?;
         let result=(||->Result<(),AiError>{
             let mut s=self.store.connection.prepare("INSERT INTO conversations(id,metadata,vehicle_id) VALUES(?,?,?)")?;
@@ -24,13 +24,13 @@ impl<'a> HistoryStore<'a>{
         match result{Ok(())=>{self.store.connection.execute("COMMIT")?;Ok(conversation)},Err(e)=>{let _=self.store.connection.execute("ROLLBACK");Err(e)}}
     }
     pub fn get(&self,id:&str)->Result<Conversation,AiError>{
-        let mut s=self.store.connection.prepare("SELECT metadata,status FROM conversations WHERE id=?")?;s.bind((1,id))?;
+        let mut s=self.store.connection.prepare("SELECT metadata,status,active_turn FROM conversations WHERE id=?")?;s.bind((1,id))?;
         if s.next()?!=State::Row{return Err(AiError::new("deleted","This conversation no longer exists."));}
-        let mut chat:Conversation=serde_json::from_str(&s.read::<String,_>(0)?)?;chat.status=s.read(1)?;Ok(chat)
+        let mut chat:Conversation=serde_json::from_str(&s.read::<String,_>(0)?)?;chat.status=s.read(1)?;chat.active_turn=s.read(2)?;Ok(chat)
     }
     pub fn list(&self)->Result<Vec<Conversation>,AiError>{
-        let mut s=self.store.connection.prepare("SELECT metadata,status FROM conversations ORDER BY rowid DESC LIMIT 100")?;let mut out=Vec::new();
-        while s.next()?==State::Row{let mut chat:Conversation=serde_json::from_str(&s.read::<String,_>(0)?)?;chat.status=s.read(1)?;out.push(chat);}Ok(out)
+        let mut s=self.store.connection.prepare("SELECT metadata,status,active_turn FROM conversations ORDER BY rowid DESC LIMIT 100")?;let mut out=Vec::new();
+        while s.next()?==State::Row{let mut chat:Conversation=serde_json::from_str(&s.read::<String,_>(0)?)?;chat.status=s.read(1)?;chat.active_turn=s.read(2)?;out.push(chat);}Ok(out)
     }
     pub fn scope(&self,id:&str)->Result<ConversationScope,AiError>{
         let mut s=self.store.connection.prepare("SELECT vehicle_id,revision FROM conversations WHERE id=?")?;s.bind((1,id))?;

@@ -1,5 +1,6 @@
 pub mod events;
 pub mod recordings;
+pub mod ai;
 
 use obdium::OBD;
 use once_cell::sync::Lazy;
