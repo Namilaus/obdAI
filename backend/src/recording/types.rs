@@ -21,6 +21,19 @@ pub enum Availability { Valid, NoData, Error }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ConnectionContext { pub generation: u64, pub vehicle_id: String, pub source: SourceMode, pub simulated: bool }
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RecordingStatus {
+    pub recording: bool,
+    pub active_session: Option<String>,
+    pub snapshot_count: u64,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Measurement {
     pub metric_id: String,
     pub name: String,
