@@ -85,6 +85,19 @@ pub struct SampleRow {
 #[serde(rename_all = "camelCase")]
 pub struct SamplePage { pub rows: Vec<SampleRow>, pub next_cursor: Option<i64>, pub truncated: bool }
 
+#[derive(Debug,Clone,Serialize,Deserialize)]
+#[serde(rename_all="camelCase")]
+pub struct MetricSummary {
+    pub metric_id:String, pub name:String, pub unit:String,
+    pub min:Option<f64>, pub max:Option<f64>, pub mean:Option<f64>, pub first:Option<f64>, pub last:Option<f64>,
+    pub first_acquired_at:Option<Timestamp>, pub last_acquired_at:Option<Timestamp>,
+    pub unique_observations:u64, pub repeated_snapshots:u64, pub stale_snapshots:u64, pub unavailable_snapshots:u64,
+}
+
+#[derive(Debug,Clone,Serialize,Deserialize)]
+#[serde(rename_all="camelCase")]
+pub struct DeletionPreview { pub recording_id:String, pub conversation_ids:Vec<String>, pub revision_token:String }
+
 #[derive(Debug, Clone, Serialize, thiserror::Error)]
 #[error("{message}")]
 pub struct RecordingError { pub code: &'static str, pub message: String }

@@ -2,6 +2,7 @@ mod cache;
 mod store;
 mod types;
 mod recorder;
+mod queries;
 pub use cache::*;
 pub use store::*;
 pub use types::*;

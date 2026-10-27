@@ -7,6 +7,7 @@ impl MeasurementCache {
     pub fn reset(&self, generation: u64) { *self.state.lock().unwrap() = (generation, BTreeMap::new()); }
     pub fn publish(&self, mut measurement: Measurement) -> Result<(), RecordingError> {
         let mut state = self.state.lock().unwrap();
+        if measurement.name.chars().count()>256 || measurement.metric_id.len()>4096 || measurement.unit.len()>128 || (!state.1.contains_key(&measurement.metric_id) && state.1.len()>=256) { return Err(RecordingError::new("invalid_input","Recording metric limits exceeded.")); }
         if state.0 != measurement.generation { return Err(RecordingError::new("stale_connection", "This reading belongs to an earlier connection.")); }
         if measurement.value.map(|v| !v.is_finite()).unwrap_or(false) {
             measurement.value = None; measurement.availability = Availability::Error;
