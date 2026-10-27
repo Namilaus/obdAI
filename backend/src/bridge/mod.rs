@@ -1,4 +1,6 @@
+pub mod ai;
 pub mod events;
+pub mod recordings;
 
 use obdium::OBD;
 use once_cell::sync::Lazy;
@@ -12,11 +14,25 @@ use tauri::{EventId, Listener, WebviewWindow};
 pub static ACTIVE_OBD: Lazy<Mutex<Option<Arc<Mutex<OBD>>>>> = Lazy::new(|| Mutex::new(None));
 pub static USER_COMMAND_LISTENER: Lazy<Mutex<Option<EventId>>> = Lazy::new(|| Mutex::new(None));
 pub static READINESS_TESTS_LISTENER: Lazy<Mutex<Option<EventId>>> = Lazy::new(|| Mutex::new(None));
+static SCANNER_LISTENERS: Lazy<Mutex<Vec<EventId>>> = Lazy::new(|| Mutex::new(Vec::new()));
+
+pub fn listen_scanner(
+    window: &Arc<WebviewWindow>,
+    name: &str,
+    handler: impl Fn(tauri::Event) + Send + Sync + 'static,
+) -> EventId {
+    let id = window.listen(name, handler);
+    SCANNER_LISTENERS.lock().unwrap().push(id);
+    id
+}
 
 pub(crate) static CUSTOM_PIDS_TRACKED: Lazy<Mutex<HashMap<String, CustomPid>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 
 pub fn unlisten_events(window: &Arc<WebviewWindow>) {
+    for id in SCANNER_LISTENERS.lock().unwrap().drain(..) {
+        window.unlisten(id);
+    }
     {
         let mut handler = USER_COMMAND_LISTENER.lock().unwrap();
         if let Some(id) = handler.take() {

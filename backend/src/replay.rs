@@ -9,6 +9,21 @@ use rand::seq::IndexedRandom;
 use serde_json::{json, Value};
 
 impl OBD {
+    /// Select an existing replay file without changing its format or enabling replay.
+    pub fn set_replay_file(&mut self, path: String) -> Result<(), crate::Error> {
+        let text = fs::read_to_string(&path).map_err(|_| crate::Error::InvalidResponse)?;
+        let entries: Vec<Value> =
+            serde_json::from_str(&text).map_err(|_| crate::Error::InvalidResponse)?;
+        if entries.is_empty()
+            || entries
+                .iter()
+                .any(|e| !e["request"].is_string() || !e["response"].is_string())
+        {
+            return Err(crate::Error::InvalidResponse);
+        }
+        self.requests_path = path;
+        Ok(())
+    }
     pub fn record_requests(&mut self, state: bool, path: String) {
         if state {
             self.requests_path = path;
@@ -34,6 +49,9 @@ impl OBD {
     }
 
     pub fn replay_requests(&mut self, state: bool) {
+        if self.replay_requests != state {
+            self.renew_generation();
+        }
         // stop recording when replaying
         if state {
             self.reset_played_flags();

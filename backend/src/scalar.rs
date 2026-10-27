@@ -5,6 +5,20 @@ use std::{
     str::FromStr,
 };
 
+#[cfg(test)]
+mod tests {
+    use super::{Scalar, Unit::*};
+
+    #[test]
+    fn recording_units_are_correct() {
+        let convert = |value, from, to| Scalar::new(value, from, None).convert(to).unwrap().value;
+        assert!((convert(212.0, Fahrenheit, Celsius) - 100.0).abs() < 0.001);
+        assert!((convert(1.0, Kilometers, Feet) - 3280.8399).abs() < 0.01);
+        assert!((convert(3280.8399, Feet, Kilometers) - 1.0).abs() < 0.001);
+        assert_eq!(Scalar::no_data().unit, NoData);
+    }
+}
+
 #[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Serialize, Deserialize)]
 pub enum Unit {
     Percent,
@@ -118,10 +132,17 @@ impl Unit {
     }
 }
 
-#[derive(Clone, Default, Debug)]
+#[derive(Clone, Debug)]
 pub struct Scalar {
     pub value: f32,
     pub unit: Unit,
+    pub acquired_at: crate::recording::Timestamp,
+}
+
+impl Default for Scalar {
+    fn default() -> Self {
+        Self::no_data()
+    }
 }
 
 impl fmt::Display for Scalar {
@@ -169,12 +190,16 @@ impl Scalar {
                 Some(Scalar::new(self.value * 1.609, target_unit, None))
             }
 
-            (Kilometers, Feet) => Some(Scalar::new(self.value * 83281.0, Feet, None)),
-            (Feet, Kilometers) => Some(Scalar::new(self.value / 83281.0, Kilometers, None)),
+            (Kilometers, Feet) => Some(Scalar::new(self.value * (1000.0 / 0.3048), Feet, None)),
+            (Feet, Kilometers) => Some(Scalar::new(
+                self.value * (0.3048 / 1000.0),
+                Kilometers,
+                None,
+            )),
 
             // Temperature
             (Celsius, Fahrenheit) => Some(Scalar::new((self.value * 1.8) + 32.0, Fahrenheit, None)),
-            (Fahrenheit, Celsius) => Some(Scalar::new((self.value - 32.0) * 1.8, Celsius, None)),
+            (Fahrenheit, Celsius) => Some(Scalar::new((self.value - 32.0) / 1.8, Celsius, None)),
 
             // Time
             (Seconds, Minutes) => Some(Scalar::new(self.value / 60.0, Minutes, None)),
@@ -229,16 +254,25 @@ impl Scalar {
             }
 
             // unit is already target unit
-            return Self { value, unit };
+            return Self {
+                value,
+                unit,
+                acquired_at: crate::recording::Timestamp::now(),
+            };
         }
 
-        Self { value, unit }
+        Self {
+            value,
+            unit,
+            acquired_at: crate::recording::Timestamp::now(),
+        }
     }
 
     pub fn no_data() -> Self {
         Self {
             value: 0.0,
             unit: Unit::NoData,
+            acquired_at: crate::recording::Timestamp::now(),
         }
     }
 }
