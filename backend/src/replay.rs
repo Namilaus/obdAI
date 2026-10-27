@@ -34,6 +34,7 @@ impl OBD {
     }
 
     pub fn replay_requests(&mut self, state: bool) {
+        if self.replay_requests!=state { self.renew_generation(); }
         // stop recording when replaying
         if state {
             self.reset_played_flags();

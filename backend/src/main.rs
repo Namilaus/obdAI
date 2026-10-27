@@ -144,6 +144,8 @@ fn main() {
             let app_data_dir = app.path().app_data_dir()?;
             APP_DATA_DIR.get_or_init(|| app_data_dir.clone());
             std::fs::create_dir_all(&app_data_dir)?;
+            let recorder=obdium::recording::RecorderHandle::open(&app_data_dir.join("diagnostics.sqlite3"))?;
+            let _=obdium::recording::ACTIVE_RECORDER.set(recorder);
             let db_path = vpic_db_path().unwrap();
             let xz_path = app
                 .path()

@@ -13,9 +13,9 @@ use tokio::time;
 use crate::bridge::CUSTOM_PIDS_TRACKED;
 
 macro_rules! update {
-    ($win:expr, $($name:expr => $val:expr),* $(,)?) => {
+    ($win:expr, $generation:expr, $($name:expr => $val:expr),* $(,)?) => {
         $(
-            update_card($win, $name, $val);
+            update_card($win, $name, $val, $generation);
         )*
     };
 }
@@ -27,12 +27,14 @@ struct Card {
     value: f32,
 }
 
-fn update_card<T>(window: &WebviewWindow, name: T, scalar: Scalar)
+fn update_card<T>(window: &WebviewWindow, name: T, scalar: Scalar, generation: u64)
 where
     T: Into<String> + std::fmt::Debug,
 {
+    let name = name.into();
+    obdium::recording::publish_scalar(&name, &scalar, generation, None);
     let card = Card {
-        name: name.into(),
+        name,
         unit: scalar.unit.as_str().to_string().to_uppercase(),
         value: scalar.value.round(),
     };
@@ -43,10 +45,12 @@ where
 pub fn critical_frequency_calls(window: &Arc<WebviewWindow>, obd: &Arc<Mutex<OBD>>) {
     let window = Arc::clone(window);
     let obd = Arc::clone(obd);
+    let generation = obd.lock().unwrap().generation();
     spawn(async move {
         let mut interval = time::interval(Duration::from_millis(500));
         loop {
             interval.tick().await;
+            if { let current=obd.lock().unwrap(); !current.is_connected() || current.generation()!=generation } { break; }
             if PAUSE_OBD_COUNT.load(Ordering::Relaxed) > 0 {
                 continue;
             }
@@ -63,7 +67,7 @@ pub fn critical_frequency_calls(window: &Arc<WebviewWindow>, obd: &Arc<Mutex<OBD
             drop(obd);
 
             update!(
-                &window,
+                &window, generation,
                 "Vehicle Speed" => vehicle_speed,
                 "Engine Speed" => rpm,
                 "Turbocharger RPM" => turbocharger_rpm,
@@ -75,12 +79,14 @@ pub fn critical_frequency_calls(window: &Arc<WebviewWindow>, obd: &Arc<Mutex<OBD
 pub fn high_frequency_calls(window: &Arc<WebviewWindow>, obd: &Arc<Mutex<OBD>>) {
     let window = Arc::clone(window);
     let obd = Arc::clone(obd);
+    let generation = obd.lock().unwrap().generation();
 
     spawn(async move {
         let mut interval = time::interval(Duration::from_secs(1));
         let mut cycle = 0;
         loop {
             interval.tick().await;
+            if { let current=obd.lock().unwrap(); !current.is_connected() || current.generation()!=generation } { break; }
             if PAUSE_OBD_COUNT.load(Ordering::Relaxed) > 0 {
                 continue;
             }
@@ -112,7 +118,7 @@ pub fn high_frequency_calls(window: &Arc<WebviewWindow>, obd: &Arc<Mutex<OBD>>) 
                     };
 
                     update!(
-                        &window,
+                        &window, generation,
                         "MAF Airflow Rate" => maf_air_flow_rate,
                         "Engine Fuel Rate" => engine_fuel_rate,
                         "Engine Oil Pressure" => engine_oil_pressure,
@@ -140,7 +146,7 @@ pub fn high_frequency_calls(window: &Arc<WebviewWindow>, obd: &Arc<Mutex<OBD>>) 
                     };
 
                     update!(
-                        &window,
+                        &window, generation,
                         "Engine Load" => engine_load,
                         "Reference Engine Torque" => ref_engine_torque,
                         "Fuel Pressure" => fuel_pressure,
@@ -166,7 +172,7 @@ pub fn high_frequency_calls(window: &Arc<WebviewWindow>, obd: &Arc<Mutex<OBD>>) 
                     };
 
                     update!(
-                        &window,
+                        &window, generation,
                         "Cylinder Fuel Rate" => cylinder_fuel_rate,
                         "MAF Maximum Airflow Rate" => max_air_flow_rate_maf,
                         "Timing Advance" => timing_advance,
@@ -193,7 +199,7 @@ pub fn high_frequency_calls(window: &Arc<WebviewWindow>, obd: &Arc<Mutex<OBD>>) 
                     };
 
                     update!(
-                        &window,
+                        &window, generation,
                         "Throttle Pos." => throttle_pos,
                         "Relative Throttle Pos." => rel_throttle_pos,
                         "Abs. Throttle Pos. (D)" => abs_throttle_b,
@@ -213,7 +219,7 @@ pub fn high_frequency_calls(window: &Arc<WebviewWindow>, obd: &Arc<Mutex<OBD>>) 
                     };
 
                     update!(
-                        &window,
+                        &window, generation,
                         "Idle Engine Torque" => engine_torque_data.0,
                         "Engine Point 1 Torque" => engine_torque_data.1,
                         "Engine Point 2 Torque" => engine_torque_data.2,
@@ -232,11 +238,13 @@ pub fn high_frequency_calls(window: &Arc<WebviewWindow>, obd: &Arc<Mutex<OBD>>) 
 pub fn frequent_calls(window: &Arc<WebviewWindow>, obd: &Arc<Mutex<OBD>>) {
     let window = Arc::clone(window);
     let obd = Arc::clone(obd);
+    let generation = obd.lock().unwrap().generation();
     spawn(async move {
         let mut interval = time::interval(Duration::from_secs(4));
         let mut cycles = 0;
         loop {
             interval.tick().await;
+            if { let current=obd.lock().unwrap(); !current.is_connected() || current.generation()!=generation } { break; }
             if PAUSE_OBD_COUNT.load(Ordering::Relaxed) > 0 {
                 continue;
             }
@@ -256,7 +264,7 @@ pub fn frequent_calls(window: &Arc<WebviewWindow>, obd: &Arc<Mutex<OBD>>) {
                         )
                     };
 
-                    update!(&window,
+                    update!(&window, generation,
                         "Short Term Fuel Trim (Bank 1)" => stft_bank_1,
                         "Intake Air Temp." => intake_air_temp,
                         "Intake Manifold Abs. Pressure" => intake_manifold_abs_pressure
@@ -269,7 +277,7 @@ pub fn frequent_calls(window: &Arc<WebviewWindow>, obd: &Arc<Mutex<OBD>>) {
                     };
 
                     update!(
-                        &window,
+                        &window, generation,
                         "Short Term Fuel Trim (Bank 2)" => stft_bank_2,
                     );
                 }
@@ -282,11 +290,13 @@ pub fn frequent_calls(window: &Arc<WebviewWindow>, obd: &Arc<Mutex<OBD>>) {
 pub fn less_frequent_calls(window: &Arc<WebviewWindow>, obd: &Arc<Mutex<OBD>>) {
     let window = Arc::clone(window);
     let obd = Arc::clone(obd);
+    let generation = obd.lock().unwrap().generation();
     spawn(async move {
         let mut interval = time::interval(Duration::from_secs(3));
         let mut cycles = 0;
         loop {
             interval.tick().await;
+            if { let current=obd.lock().unwrap(); !current.is_connected() || current.generation()!=generation } { break; }
             if PAUSE_OBD_COUNT.load(Ordering::Relaxed) > 0 {
                 continue;
             }
@@ -320,7 +330,7 @@ pub fn less_frequent_calls(window: &Arc<WebviewWindow>, obd: &Arc<Mutex<OBD>>) {
                     };
 
                     update!(
-                        &window,
+                        &window, generation,
                         "Long Term Fuel Trim (Bank 1)" => ltft_bank_1,
                         "Long Term Fuel Trim (Bank 2)" => ltft_bank_2,
                         "Coolant Temp." => coolant_temp,
@@ -353,7 +363,7 @@ pub fn less_frequent_calls(window: &Arc<WebviewWindow>, obd: &Arc<Mutex<OBD>>) {
                     };
 
                     update!(
-                        &window,
+                        &window, generation,
                         "Catalyst Temp. (Bank 1: Sensor 1)" => catalyst_temp_b1_s1,
                         "Catalyst Temp. (Bank 1: Sensor 2)" => catalyst_temp_b1_s2,
                         "Catalyst Temp. (Bank 2: Sensor 1)" => catalyst_temp_b2_s1,
@@ -379,7 +389,7 @@ pub fn less_frequent_calls(window: &Arc<WebviewWindow>, obd: &Arc<Mutex<OBD>>) {
                     };
 
                     update!(
-                        &window,
+                        &window, generation,
                         "Absolute Barometric Pressure" => barometric_pressure,
                         "Ambient Air Temp." => ambient_air_temp,
                         "Fuel Injection Timing" => fuel_injection_timing,
@@ -406,7 +416,7 @@ pub fn less_frequent_calls(window: &Arc<WebviewWindow>, obd: &Arc<Mutex<OBD>>) {
                     };
 
                     update!(
-                        &window,
+                        &window, generation,
                         "Commanded EVAP Purge" => commanded_evap_purge,
                         "EVAP System Vapor Pressure" =>evap_sys_vapor_pressure,
                         "Control Module Voltage" => control_mod_voltage,
@@ -422,11 +432,13 @@ pub fn less_frequent_calls(window: &Arc<WebviewWindow>, obd: &Arc<Mutex<OBD>>) {
 pub fn oxygen_sensors(window: &Arc<WebviewWindow>, obd: &Arc<Mutex<OBD>>) {
     let window = Arc::clone(window);
     let obd = Arc::clone(obd);
+    let generation = obd.lock().unwrap().generation();
     spawn(async move {
         let mut interval = time::interval(Duration::from_secs(6));
         let mut cycles = 0;
         loop {
             interval.tick().await;
+            if { let current=obd.lock().unwrap(); !current.is_connected() || current.generation()!=generation } { break; }
             if PAUSE_OBD_COUNT.load(Ordering::Relaxed) > 0 {
                 continue;
             }
@@ -449,7 +461,7 @@ pub fn oxygen_sensors(window: &Arc<WebviewWindow>, obd: &Arc<Mutex<OBD>>) {
                     };
 
                     update!(
-                        &window,
+                        &window, generation,
                         "O2 Sensor (1) Voltage (1)" => o2_sensor_1.0,
                         "O2 Sensor (1) STFT" => o2_sensor_1.1,
                         "O2 Sensor (2) Voltage (1)" => o2_sensor_2.0,
@@ -477,7 +489,7 @@ pub fn oxygen_sensors(window: &Arc<WebviewWindow>, obd: &Arc<Mutex<OBD>>) {
                     };
 
                     update!(
-                        &window,
+                        &window, generation,
                         "O2 Sensor (1) AFR" => o2_sensor_af_ratio_1.0,
                         "O2 Sensor (1) Voltage (2)" => o2_sensor_af_ratio_1.1,
                         "O2 Sensor (2) AFR" => o2_sensor_af_ratio_2.0,
@@ -500,7 +512,7 @@ pub fn oxygen_sensors(window: &Arc<WebviewWindow>, obd: &Arc<Mutex<OBD>>) {
                     };
 
                     update!(
-                        &window,
+                        &window, generation,
                         "O2 Sensor (5) Voltage (1)" => o2_sensor_5.0,
                         "O2 Sensor (5) STFT" => o2_sensor_5.1,
                         "O2 Sensor (6) Voltage (1)" => o2_sensor_6.0,
@@ -528,7 +540,7 @@ pub fn oxygen_sensors(window: &Arc<WebviewWindow>, obd: &Arc<Mutex<OBD>>) {
                     };
 
                     update!(
-                        &window,
+                        &window, generation,
                             "O2 Sensor (5) AFR" => o2_sensor_af_ratio_5.0,
                             "O2 Sensor (5) Voltage (2)" => o2_sensor_af_ratio_5.1,
                             "O2 Sensor (6) AFR" => o2_sensor_af_ratio_6.0,
@@ -548,10 +560,12 @@ pub fn oxygen_sensors(window: &Arc<WebviewWindow>, obd: &Arc<Mutex<OBD>>) {
 pub fn custom_pid_calls(window: &Arc<WebviewWindow>, obd: &Arc<Mutex<OBD>>) {
     let window = Arc::clone(window);
     let obd = Arc::clone(obd);
+    let generation = obd.lock().unwrap().generation();
     spawn(async move {
         let mut interval = time::interval(Duration::from_secs(1));
         loop {
             interval.tick().await;
+            if { let current=obd.lock().unwrap(); !current.is_connected() || current.generation()!=generation } { break; }
             if PAUSE_OBD_COUNT.load(Ordering::Relaxed) > 0 {
                 continue;
             }
@@ -564,7 +578,12 @@ pub fn custom_pid_calls(window: &Arc<WebviewWindow>, obd: &Arc<Mutex<OBD>>) {
                     if let Ok(scalar) =
                         obd.calculate_dynamic_equation(&pid.equation, &pid.unit, &response)
                     {
-                        update!(&window, &pid.name => scalar);
+                        let definition = format!("{}:{}:{}:{}", pid.name, pid.command, pid.equation, pid.unit);
+                        obdium::recording::publish_scalar(&pid.name, &scalar, generation, Some(&definition));
+                        update_card(&window, &pid.name, scalar, 0);
+                    } else {
+                        let definition = format!("{}:{}:{}:{}", pid.name, pid.command, pid.equation, pid.unit);
+                        obdium::recording::publish_scalar(&pid.name, &Scalar::no_data(), generation, Some(&definition));
                     }
                 }
             }
@@ -576,6 +595,7 @@ pub fn once_calls(window: &Arc<WebviewWindow>, obd: &Arc<Mutex<OBD>>) {
     // Once calls
     let window = Arc::clone(window);
     let obd = Arc::clone(obd);
+    let generation = obd.lock().unwrap().generation();
     spawn(async move {
         let mut obd = obd.lock().unwrap();
         let warm_ups = obd.warm_ups_since_codes_cleared();
@@ -588,7 +608,7 @@ pub fn once_calls(window: &Arc<WebviewWindow>, obd: &Arc<Mutex<OBD>>) {
         let engine_oil_life = obd.engine_oil_life();
 
         update!(
-            &window,
+            &window, generation,
                 "Warm-Ups Since Codes Cleared" => warm_ups,
                 "Dist. Since Codes Cleared" => dist_since,
                 "Dist. With Check Engine Light" => dist_with,
@@ -600,3 +620,5 @@ pub fn once_calls(window: &Arc<WebviewWindow>, obd: &Arc<Mutex<OBD>>) {
         );
     });
 }
+
+

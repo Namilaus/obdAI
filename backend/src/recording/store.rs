@@ -4,6 +4,10 @@ use std::path::Path;
 
 pub struct RecordingStore { pub(crate) connection: Connection }
 impl RecordingStore {
+    pub fn record_diagnostic(&mut self,id:&str,kind:&str,utc:i64,payload:&serde_json::Value)->Result<(),RecordingError> {
+        let mut s=self.connection.prepare("INSERT INTO diagnostic_events(session_id,kind,acquired_utc,payload) VALUES(?,?,?,?)")?;
+        s.bind((1,id))?; s.bind((2,kind))?; s.bind((3,utc))?; s.bind((4,serde_json::to_string(payload)?.as_str()))?; s.next()?; Ok(())
+    }
     pub fn open(path: &Path) -> Result<Self, RecordingError> {
         let mut connection = Connection::open(path)?;
         connection.set_busy_timeout(2000)?;

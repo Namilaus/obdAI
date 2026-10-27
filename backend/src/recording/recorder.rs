@@ -9,6 +9,7 @@ pub struct Recorder {
     active: Option<SessionMetadata>,
     next_tick: u64,
     status: RecordingStatus,
+    diagnostic_events: std::collections::BTreeMap<String,(Timestamp,serde_json::Value)>,
 }
 impl Recorder {
     pub fn new(mut store: RecordingStore, cache: Arc<MeasurementCache>) -> Self {
@@ -22,13 +23,13 @@ impl Recorder {
             }
             Ok(())
         })();
-        Self { store, cache, connection:None, active:None, next_tick:0,
+        Self { store, cache, connection:None, active:None, next_tick:0, diagnostic_events:Default::default(),
             status:RecordingStatus { error:recovery.err().map(|e|e.message), ..Default::default() } }
     }
     pub fn set_connection(&mut self, context: Option<ConnectionContext>) {
         let changed=match (&self.connection,&context) { (Some(a),Some(b))=>a.generation!=b.generation || a.source!=b.source, (None,None)=>false, _=>true };
         if changed && self.active.is_some() { let _=self.stop(if context.is_none(){"disconnect"}else{"source_changed"},Timestamp::now()); }
-        if changed { self.cache.reset(context.as_ref().map(|c|c.generation).unwrap_or(0)); }
+        if changed { self.cache.reset(context.as_ref().map(|c|c.generation).unwrap_or(0)); self.diagnostic_events.clear(); }
         self.connection=context;
     }
     pub fn start(&mut self, interval: u64, label: String, now: Timestamp) -> Result<SessionMetadata,RecordingError> {
@@ -38,6 +39,7 @@ impl Recorder {
         let mut session=SessionMetadata::new(context.vehicle_id,label,interval,context.source,context.generation,now.clone());
         session.simulated=context.simulated;
         self.store.insert_session(&session)?;
+        for (kind,(timestamp,payload)) in &self.diagnostic_events { self.store.record_diagnostic(&session.id,kind,timestamp.utc_ms,payload)?; }
         self.active=Some(session.clone()); self.next_tick=now.elapsed_ms+interval*1000;
         self.status=RecordingStatus { recording:true,active_session:Some(session.id.clone()),snapshot_count:0,error:None };
         if let Err(e)=self.capture(now) { self.fail(&e); return Err(e); }
@@ -75,6 +77,12 @@ impl Recorder {
     }
     pub fn status(&self) -> RecordingStatus { self.status.clone() }
     pub fn connection(&self) -> Option<ConnectionContext> { self.connection.clone() }
+    pub fn diagnostic(&mut self,generation:u64,kind:String,at:Timestamp,payload:serde_json::Value)->Result<(),RecordingError> {
+        if self.connection.as_ref().map(|c|c.generation)!=Some(generation) { return Err(RecordingError::new("stale_connection","Diagnostic scan belongs to an earlier connection.")); }
+        if serde_json::to_vec(&payload)?.len()>64*1024 { return Err(RecordingError::new("invalid_input","Diagnostic context is too large.")); }
+        if let Some(session)=&self.active { self.store.record_diagnostic(&session.id,&kind,at.utc_ms,&payload)?; }
+        self.diagnostic_events.insert(kind,(at,payload)); Ok(())
+    }
 }
 
 type Work = Box<dyn FnOnce(&mut Recorder)+Send>;

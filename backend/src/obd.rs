@@ -14,6 +14,11 @@ use crate::scalar::{Scalar, Unit, UnitPreferences};
 use crate::vin::VIN;
 use crate::MODE22_PIDS_DB_PATH;
 
+fn next_generation()->u64 {
+    static NEXT:std::sync::atomic::AtomicU64=std::sync::atomic::AtomicU64::new(1);
+    NEXT.fetch_add(1,std::sync::atomic::Ordering::Relaxed)
+}
+
 #[derive(Debug)]
 pub enum BankNumber {
     Bank1,
@@ -166,6 +171,7 @@ impl Write for DummySerialPort {
 
 #[derive(Default)]
 pub struct OBD {
+    generation: u64,
     connection: Option<Box<dyn SerialPort>>,
     elm_version: Option<String>,
     freeze_frame_query: bool,
@@ -181,10 +187,21 @@ pub struct OBD {
 impl OBD {
     pub fn new() -> Self {
         Self {
+            generation: next_generation(),
             requests_path: "./data/requests.json".to_string(),
             ..Default::default()
         }
     }
+
+    pub fn generation(&self) -> u64 { self.generation }
+    pub(crate) fn renew_generation(&mut self) { self.generation=next_generation(); }
+    pub fn recording_source(&self) -> crate::recording::SourceMode {
+        use crate::recording::SourceMode;
+        if self.freeze_frame_query { SourceMode::FreezeFrame }
+        else if self.serial_port_name().as_deref()==Some("DEMO MODE") { SourceMode::Demo }
+        else if self.replay_requests { SourceMode::Replay } else { SourceMode::Live }
+    }
+    pub fn recording_simulated(&self) -> bool { self.replay_requests }
 
     pub fn connect(&mut self, port: &str, baud_rate: u32, protocol: u8) -> Result<(), Error> {
         if port == "DEMO MODE" {
@@ -390,6 +407,7 @@ impl OBD {
     ///
     /// Returns the updated value of `freeze_frame_query`.
     pub fn query_freeze_frame(&mut self, state: bool) {
+        if self.freeze_frame_query!=state { self.renew_generation(); }
         self.freeze_frame_query = state
     }
 

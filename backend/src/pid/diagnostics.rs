@@ -232,6 +232,17 @@ impl Test {
 }
 
 impl OBD {
+    /// Fallible scan used by recorded diagnostic evidence. Missing responses are never an empty success.
+    pub fn scan_trouble_codes(&mut self) -> Result<Vec<TroubleCode>, Error> { self.scan_codes(b"03", "43") }
+    pub fn scan_permanent_trouble_codes(&mut self) -> Result<Vec<TroubleCode>, Error> { self.scan_codes(b"0A", "4A") }
+    fn scan_codes(&mut self, command: &[u8;2], positive: &str) -> Result<Vec<TroubleCode>, Error> {
+        if !self.is_connected() { return Err(Error::NoConnection); }
+        let response=self.query(Command::new_svc(command));
+        let raw=response.full_response().ok_or(Error::NoData)?;
+        let mut clean=raw.replace(' ', "").replace('\r', "").replace('\n', "");
+        if !clean.contains(positive) || clean.contains("NODATA") { return Err(Error::InvalidResponse); }
+        Ok(Self::decode_trouble_codes(&mut clean))
+    }
     /// Get the DTC that caused the freeze frame.
     pub fn get_freeze_frame_dtc(&mut self) -> Vec<TroubleCode> {
         if let Err(err) = self.send_command(&mut Command::new_pid(b"0102")) {

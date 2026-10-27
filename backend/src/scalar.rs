@@ -132,11 +132,14 @@ impl Unit {
     }
 }
 
-#[derive(Clone, Default, Debug)]
+#[derive(Clone, Debug)]
 pub struct Scalar {
     pub value: f32,
     pub unit: Unit,
+    pub acquired_at: crate::recording::Timestamp,
 }
+
+impl Default for Scalar { fn default() -> Self { Self::no_data() } }
 
 impl fmt::Display for Scalar {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -243,16 +246,17 @@ impl Scalar {
             }
 
             // unit is already target unit
-            return Self { value, unit };
+            return Self { value, unit, acquired_at: crate::recording::Timestamp::now() };
         }
 
-        Self { value, unit }
+        Self { value, unit, acquired_at: crate::recording::Timestamp::now() }
     }
 
     pub fn no_data() -> Self {
         Self {
             value: 0.0,
             unit: Unit::NoData,
+            acquired_at: crate::recording::Timestamp::now(),
         }
     }
 }
