@@ -133,6 +133,13 @@ fn connect_obd(window: &WebviewWindow, port: String, baud_rate: u32, protocol: u
 
 fn main() {
     tauri::Builder::default()
+        .invoke_handler(tauri::generate_handler![
+            bridge::recordings::recording_start,bridge::recordings::recording_stop,
+            bridge::recordings::recording_status,bridge::recordings::recording_list,
+            bridge::recordings::recording_metrics,bridge::recordings::recording_samples,
+            bridge::recordings::recording_summary,bridge::recordings::recording_assign_vehicle,
+            bridge::recordings::recording_delete_preview,bridge::recordings::recording_delete
+        ])
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
@@ -144,8 +151,10 @@ fn main() {
             let app_data_dir = app.path().app_data_dir()?;
             APP_DATA_DIR.get_or_init(|| app_data_dir.clone());
             std::fs::create_dir_all(&app_data_dir)?;
-            let recorder=obdium::recording::RecorderHandle::open(&app_data_dir.join("diagnostics.sqlite3"))?;
-            let _=obdium::recording::ACTIVE_RECORDER.set(recorder);
+            match obdium::recording::RecorderHandle::open(&app_data_dir.join("diagnostics.sqlite3")) {
+                Ok(recorder)=>{let _=obdium::recording::ACTIVE_RECORDER.set(recorder);}
+                Err(_)=>eprintln!("Local recording storage is unavailable; scanner features remain available."),
+            }
             let db_path = vpic_db_path().unwrap();
             let xz_path = app
                 .path()
@@ -177,6 +186,16 @@ fn main() {
             });
 
             Ok(())
+        })
+        .on_window_event(|window,event| {
+            if let tauri::WindowEvent::CloseRequested{api,..}=event {
+                if let Some(handle)=obdium::recording::ACTIVE_RECORDER.get() {
+                    if handle.call(|r|{if r.status().recording {r.stop("shutdown",obdium::recording::Timestamp::now())?;}Ok(())}).is_err() {
+                        api.prevent_close();
+                        let _=window.emit("display-notification",FrontendNotification{title:"Recording could not be saved",description:"Stop the recording and check local storage before closing."});
+                    }
+                }
+            }
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -7,10 +7,12 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script type="module" src="scripts/events.js"></script>
     <script type="module" src="scripts/settings.js"></script>
+    <script type="module" src="scripts/recordings.js"></script>
     <script type="module" src="scripts/main.js"></script>
     <script type="module" src="scripts/features.js"></script>
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="layout.css" />
+    <link rel="stylesheet" href="components/recordings.css" />
     <link rel="stylesheet" href="scrollbar.css" />
     <link rel="stylesheet" href="components/card.css" />
     <link rel="stylesheet" href="components/notification.css" />
@@ -66,6 +68,7 @@
     </div>
 
     <div class="sidebar">
+      <button class="sidebar-button" data-tooltip="RECORDINGS" data-screen="recordings" aria-label="Recordings">REC</button>
       <button
         class="sidebar-button"
         data-tooltip="CONNECT"
@@ -314,6 +317,20 @@
         </div>
       </div>
 
+      <div class="recording-bar">
+        <button id="recording-start">Start recording</button>
+        <button id="recording-stop" disabled>Stop recording</button>
+        <label for="recording-interval">Save every</label>
+        <select id="recording-interval"><option value="1">1 second</option><option value="2">2 seconds</option><option value="5">5 seconds</option><option value="10">10 seconds</option></select>
+        <span id="recording-status" role="status">Recording stopped</span>
+      </div>
+      <p id="recording-error" role="alert"></p>
+      <div id="recordings" class="screen" style="display:none">
+        <div class="screen-label">Recordings</div>
+        <p>Saved locally. Select recordings to use in a diagnostic conversation.</p>
+        <label for="recording-label">Next recording label</label><input id="recording-label" maxlength="256" placeholder="For example: rough idle when warm" />
+        <div id="recording-list"></div><div id="recording-detail"></div>
+      </div>
       <div id="connect-settings" class="screen" style="display: none">
         <div id="connect-header" class="screen-label">CONNECTION SETTINGS</div>
 
@@ -1203,3 +1220,4 @@
     });
   </script>
 </html>
+
