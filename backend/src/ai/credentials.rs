@@ -33,12 +33,15 @@ impl SecretBackend for NativeSecrets {
         match entry.delete_credential(){Ok(())|Err(keyring::v1::Error::NoEntry)=>Ok(()),Err(_)=>Err(vault_error())}
     }
 }
-pub struct CredentialVault{backend:Arc<dyn SecretBackend>,memory:Mutex<BTreeMap<ProviderId,SecretString>>}
+pub struct CredentialVault{backend:Arc<dyn SecretBackend>,memory:Mutex<BTreeMap<ProviderId,SecretString>>,epochs:[std::sync::atomic::AtomicU64;3]}
 impl Default for CredentialVault{fn default()->Self{Self::new(Arc::new(NativeSecrets))}}
 impl CredentialVault{
-    pub fn new(backend:Arc<dyn SecretBackend>)->Self{Self{backend,memory:Mutex::new(BTreeMap::new())}}
+    pub fn new(backend:Arc<dyn SecretBackend>)->Self{Self{backend,memory:Mutex::new(BTreeMap::new()),epochs:std::array::from_fn(|_|std::sync::atomic::AtomicU64::new(0))}}
+    fn epoch(&self,provider:ProviderId)->&std::sync::atomic::AtomicU64{&self.epochs[match provider{ProviderId::Openai=>0,ProviderId::Anthropic=>1,ProviderId::Deepseek=>2}]}
+    pub fn revision(&self,provider:ProviderId)->u64{self.epoch(provider).load(std::sync::atomic::Ordering::SeqCst)}
     pub fn set(&self,provider:ProviderId,secret:SecretString,persistence:CredentialPersistence)->Result<(),AiError>{
         if secret.expose().trim().is_empty() || secret.expose().len()>4096 || secret.expose().chars().any(char::is_control){return Err(AiError::new("invalid_input","Enter a valid API key."));}
+        self.epoch(provider).fetch_add(1,std::sync::atomic::Ordering::SeqCst);
         match persistence{CredentialPersistence::Native=>{self.backend.set(provider,&secret)?;self.memory.lock().unwrap().remove(&provider);},CredentialPersistence::Session=>{self.memory.lock().unwrap().insert(provider,secret);}}Ok(())
     }
     pub fn get(&self,provider:ProviderId)->Result<SecretString,AiError>{
@@ -49,5 +52,5 @@ impl CredentialVault{
         if self.memory.lock().unwrap().contains_key(&provider){return KeyStatus{configured:true,persistence:Some(CredentialPersistence::Session),error:None};}
         match self.backend.get(provider){Ok(Some(_))=>KeyStatus{configured:true,persistence:Some(CredentialPersistence::Native),error:None},Ok(None)=>KeyStatus{configured:false,persistence:None,error:None},Err(e)=>KeyStatus{configured:false,persistence:None,error:Some(e.message)}}
     }
-    pub fn remove(&self,provider:ProviderId)->Result<(),AiError>{self.memory.lock().unwrap().remove(&provider);self.backend.remove(provider)}
+    pub fn remove(&self,provider:ProviderId)->Result<(),AiError>{self.epoch(provider).fetch_add(1,std::sync::atomic::Ordering::SeqCst);self.memory.lock().unwrap().remove(&provider);self.backend.remove(provider)}
 }

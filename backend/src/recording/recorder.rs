@@ -89,6 +89,7 @@ type Work = Box<dyn FnOnce(&mut Recorder)+Send>;
 /// Database and snapshot work run here, never on a scanner thread or the webview thread.
 #[derive(Clone)]
 pub struct RecorderHandle {
+    pub path:std::path::PathBuf,
     sender:mpsc::SyncSender<Work>,
     pub cache:Arc<MeasurementCache>,
     status:Arc<Mutex<RecordingStatus>>,
@@ -96,6 +97,7 @@ pub struct RecorderHandle {
 impl RecorderHandle {
     pub fn open(path:&Path) -> Result<Self,RecordingError> {
         let path=path.to_path_buf();
+        let reader_path=path.clone();
         let (sender,receiver)=mpsc::sync_channel::<Work>(16);
         let (ready_send,ready_receive)=mpsc::sync_channel(1);
         let cache=Arc::new(MeasurementCache::default()); let worker_cache=cache.clone();
@@ -116,7 +118,7 @@ impl RecorderHandle {
             }
         }).map_err(|_|RecordingError::new("storage","Could not start the recording worker."))?;
         ready_receive.recv().map_err(|_|RecordingError::new("storage","Recording worker did not initialize."))??;
-        Ok(Self{sender,cache,status})
+        Ok(Self{sender,cache,status,path:reader_path})
     }
     pub fn call<T:Send+'static>(&self, work:impl FnOnce(&mut Recorder)->Result<T,RecordingError>+Send+'static)->Result<T,RecordingError> {
         let (send,receive)=mpsc::sync_channel(1);

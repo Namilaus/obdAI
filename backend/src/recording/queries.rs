@@ -12,12 +12,16 @@ fn normalized(value:f64,unit:&str)->(f64,String) {
 
 impl RecordingStore {
     pub fn summary(&self,id:&str,metrics:&[String],start:u64,end:u64)->Result<Vec<MetricSummary>,RecordingError> {
+        self.summary_cancellable(id,metrics,start,end,||false)
+    }
+    pub fn summary_cancellable(&self,id:&str,metrics:&[String],start:u64,end:u64,cancelled:impl Fn()->bool)->Result<Vec<MetricSummary>,RecordingError> {
         self.session(id)?;
         if start>end || metrics.len()>10 { return Err(RecordingError::new("invalid_input","Invalid summary selection.")); }
         let mut s=self.connection.prepare("SELECT payload FROM measurements WHERE session_id=? AND elapsed_ms>=? AND elapsed_ms<? ORDER BY id")?;
         s.bind((1,id))?;s.bind((2,start.min(i64::MAX as u64) as i64))?;s.bind((3,end.min(i64::MAX as u64) as i64))?;
         let mut summaries:BTreeMap<(String,String),(MetricSummary,Option<u64>)>=BTreeMap::new();
         while s.next()?==State::Row {
+            if cancelled(){return Err(RecordingError::new("cancelled","Recording query cancelled."));}
             let row:SampleRow=serde_json::from_str(&s.read::<String,_>(0)?)?;
             let m=&row.measurement;
             if !metrics.is_empty() && !metrics.contains(&m.metric_id) {continue;}

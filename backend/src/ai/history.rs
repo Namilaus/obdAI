@@ -74,4 +74,13 @@ impl<'a> HistoryStore<'a>{
     }
     pub fn delete(&self,id:&str)->Result<(),AiError>{self.get(id)?;let mut s=self.store.connection.prepare("DELETE FROM conversations WHERE id=?")?;s.bind((1,id))?;s.next()?;Ok(())}
     pub fn revoke_all(&self)->Result<(),AiError>{self.store.connection.execute("UPDATE messages SET status='cancelled' WHERE status='pending';UPDATE conversations SET active_turn=NULL,status='cancelled',revision=revision+1 WHERE active_turn IS NOT NULL;")?;Ok(())}
+    pub fn revoke_turn(&self,turn_id:&str)->Result<(),AiError>{
+        let mut s=self.store.connection.prepare("UPDATE conversations SET active_turn=NULL,status='cancelled',revision=revision+1 WHERE active_turn=?")?;s.bind((1,turn_id))?;s.next()?;
+        let mut s=self.store.connection.prepare("UPDATE messages SET status='cancelled' WHERE turn_id=? AND status='pending'")?;s.bind((1,turn_id))?;s.next()?;Ok(())
+    }
+    pub fn revoke_provider(&self,provider:ProviderId)->Result<(),AiError>{
+        let mut s=self.store.connection.prepare("SELECT metadata,active_turn FROM conversations WHERE active_turn IS NOT NULL")?;let mut turns=Vec::new();
+        while s.next()?==State::Row{let chat:Conversation=serde_json::from_str(&s.read::<String,_>(0)?)?;if chat.selection.provider==provider{turns.push(s.read::<String,_>(1)?);}}
+        for turn in turns{self.revoke_turn(&turn)?;}Ok(())
+    }
 }
