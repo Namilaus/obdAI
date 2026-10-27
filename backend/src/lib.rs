@@ -7,6 +7,7 @@ mod replay;
 mod response;
 pub mod scalar;
 pub mod recording;
+pub mod ai;
 pub mod vin;
 
 use std::sync::atomic::AtomicUsize;
