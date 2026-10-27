@@ -1,10 +1,118 @@
-.recording-bar{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid #303036;border-bottom:1px solid #303036;margin-bottom:14px;flex-wrap:wrap;font-size:.8rem}
-.recording-bar button,.recording-row button,#recording-detail button{font:inherit;color:inherit;background:#242429;border:1px solid #48434d;border-radius:5px;padding:8px 12px;cursor:pointer}
-.recording-bar button:disabled,.recording-row button:disabled{opacity:.45;cursor:default}
-.recording-bar select,#recording-detail input,#recording-detail select,#recording-label{font:inherit;color:inherit;background:#1b1b20;border:1px solid #48434d;border-radius:5px;padding:8px}
-#recording-status{margin-left:auto;color:#b4adb9}.is-recording{color:#a6e6b7!important}.is-recording:before{content:'● ';color:#a6e6b7}
-#recording-error{color:#ffb4ac;font-size:.8rem;white-space:pre-wrap}#recordings{overflow-y:auto}#recordings>p{font-size:.85rem;color:#b4adb9;margin-bottom:12px}
-.recording-row{display:flex;align-items:center;gap:10px;border-bottom:1px solid #303036;padding:16px 0;font-size:.8rem}.recording-info{flex:1;min-width:0;display:grid;gap:6px}.recording-info span{color:#b4adb9;overflow-wrap:anywhere}
-.recording-empty{padding:30px 0;color:#b4adb9}#recording-detail{padding:16px 0;display:flex;flex-wrap:wrap;gap:10px}#recording-detail pre{width:100%;max-height:40vh;overflow:auto;font-size:.75rem;white-space:pre-wrap;background:#19191e;padding:14px}#recording-detail h3,#recording-detail p{width:100%}
-.recording-bar :focus-visible,.recording-row :focus-visible,#recording-detail :focus-visible{outline:2px solid #d5beec;outline-offset:3px}
-@media(max-height:500px){.recording-bar{padding:6px 0;margin-bottom:8px}.recording-row{padding:10px 0}}
+.recording-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid #303036;
+  border-bottom: 1px solid #303036;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+  font-size: 0.8rem;
+}
+.recording-bar button,
+.recording-row button,
+#recording-detail button {
+  font: inherit;
+  color: inherit;
+  background: #242429;
+  border: 1px solid #48434d;
+  border-radius: 5px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+.recording-bar button:disabled,
+.recording-row button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.recording-bar select,
+#recording-detail input,
+#recording-detail select,
+#recording-label {
+  font: inherit;
+  color: inherit;
+  background: #1b1b20;
+  border: 1px solid #48434d;
+  border-radius: 5px;
+  padding: 8px;
+}
+#recording-status {
+  margin-left: auto;
+  color: #b4adb9;
+}
+.is-recording {
+  color: #a6e6b7 !important;
+}
+.is-recording:before {
+  content: "● ";
+  color: #a6e6b7;
+}
+#recording-error {
+  color: #ffb4ac;
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+}
+#recordings {
+  overflow-y: auto;
+}
+#recordings > p {
+  font-size: 0.85rem;
+  color: #b4adb9;
+  margin-bottom: 12px;
+}
+.recording-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid #303036;
+  padding: 16px 0;
+  font-size: 0.8rem;
+}
+.recording-info {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+.recording-info span {
+  color: #b4adb9;
+  overflow-wrap: anywhere;
+}
+.recording-empty {
+  padding: 30px 0;
+  color: #b4adb9;
+}
+#recording-detail {
+  padding: 16px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+#recording-detail pre {
+  width: 100%;
+  max-height: 40vh;
+  overflow: auto;
+  font-size: 0.75rem;
+  white-space: pre-wrap;
+  background: #19191e;
+  padding: 14px;
+}
+#recording-detail h3,
+#recording-detail p {
+  width: 100%;
+}
+.recording-bar :focus-visible,
+.recording-row :focus-visible,
+#recording-detail :focus-visible {
+  outline: 2px solid #d5beec;
+  outline-offset: 3px;
+}
+@media (max-height: 500px) {
+  .recording-bar {
+    padding: 6px 0;
+    margin-bottom: 8px;
+  }
+  .recording-row {
+    padding: 10px 0;
+  }
+}

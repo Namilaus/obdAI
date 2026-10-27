@@ -1,13 +1,13 @@
+pub mod ai;
 mod cmd;
 pub mod dicts;
 pub mod mid;
 pub mod obd;
 mod pid;
+pub mod recording;
 mod replay;
 mod response;
 pub mod scalar;
-pub mod recording;
-pub mod ai;
 pub mod vin;
 
 use std::sync::atomic::AtomicUsize;

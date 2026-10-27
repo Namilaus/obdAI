@@ -68,6 +68,9 @@ The goal with OBDium is to fill a gap in the ecosystem, providing the best free,
 
 ## Features
 
+- **Optional AI diagnosis:** Bring your own OpenAI, Claude, or DeepSeek API key and choose a compatible model. Use a conversational assistant with read-only access to selected local scanner recordings.
+- **Saved diagnostic recordings:** Manually start/stop interval recordings, inspect persistent history, and delete recordings and linked chats. Recording works with AI disabled. See the [recording and AI diagnosis guide](docs/ai-diagnostics.md).
+
 - **⚠️ View Trouble Codes:** Read diagnostic trouble codes, including **Powertrain, Body, Chassis,** and **Network** alongside a description
 - **🧠 Live Vehicle Metrics:** Reads and decodes various OBD-II PIDs (engine, fuel, air, exhaust, diagnostics, etc.) with plans for manufacturer specific PIDs soon
 - **🔎 Advanced VIN Decoding:** In-depth VIN decoding using a custom parser and SQLite-backed lookups based off of the NHTSA's VPIC MSSQL database

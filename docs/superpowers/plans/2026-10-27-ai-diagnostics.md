@@ -10,6 +10,8 @@
 
 **Spec:** [Approved design](../specs/2026-10-27-ai-diagnostics-design.md), approved 2026-10-27.
 
+**Execution status:** Tasks 1–14 implemented using the Native workflow on `codex/ai-diagnostics`. Original step lists below are retained as the design checklist; actual commands, implementation decisions, and validation limits are summarized in [verification notes](../../testing/ai-diagnostics.md). Tests live in `backend/tests/` with a few crate-local unit tests rather than the illustrative nested test paths below. Managed-worktree write restrictions required implementation in the writable project checkout on the isolated feature branch. Paid-provider, physical-scanner, macOS/Linux, and installer acceptance checks remain explicitly unrun.
+
 ## Global Constraints
 
 - AI is disabled by default. Ordinary diagnostics and recording work without AI or network access.
@@ -329,4 +331,4 @@ assert.equal(keyWasWrittenToLocalStorage, false);
 
 Coverage checked against the approved design: persistence/lifecycle Tasks 2–6; accurate scanner evidence Tasks 1/4; settings/keys/model discovery Tasks 8–11/13; selected-session and vehicle authorization Tasks 5/7/12; conversation persistence/deletion Tasks 7/12; provider protocols Tasks 8–11; context/cost/cancellation limits Task 12; UI and content isolation Tasks 6/8/13; verification/release limits Task 14. The five Review Focus cases have explicit owning tests. Signatures and shared types above are the contract for implementers; helper details remain local to each module.
 
-Plan-only status: no product changes, dependency installation, paid API requests, or application tests have been performed as part of writing this plan. The unit-conversion arithmetic was checked directly against the source formulas; executable Rust regressions belong to Task 1. Design approval is recorded in the linked spec. Execution method is not yet selected; recommend native execution in this chat because acquisition, lifecycle, persistence and deletion share interfaces, followed by independent whole-change review.
+The original plan was approved before implementation. Native execution and independent whole-change review are complete; final verification evidence and remaining release acceptance items are recorded in the linked verification notes.

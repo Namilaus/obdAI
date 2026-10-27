@@ -139,7 +139,11 @@ pub struct Scalar {
     pub acquired_at: crate::recording::Timestamp,
 }
 
-impl Default for Scalar { fn default() -> Self { Self::no_data() } }
+impl Default for Scalar {
+    fn default() -> Self {
+        Self::no_data()
+    }
+}
 
 impl fmt::Display for Scalar {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -187,7 +191,11 @@ impl Scalar {
             }
 
             (Kilometers, Feet) => Some(Scalar::new(self.value * (1000.0 / 0.3048), Feet, None)),
-            (Feet, Kilometers) => Some(Scalar::new(self.value * (0.3048 / 1000.0), Kilometers, None)),
+            (Feet, Kilometers) => Some(Scalar::new(
+                self.value * (0.3048 / 1000.0),
+                Kilometers,
+                None,
+            )),
 
             // Temperature
             (Celsius, Fahrenheit) => Some(Scalar::new((self.value * 1.8) + 32.0, Fahrenheit, None)),
@@ -246,10 +254,18 @@ impl Scalar {
             }
 
             // unit is already target unit
-            return Self { value, unit, acquired_at: crate::recording::Timestamp::now() };
+            return Self {
+                value,
+                unit,
+                acquired_at: crate::recording::Timestamp::now(),
+            };
         }
 
-        Self { value, unit, acquired_at: crate::recording::Timestamp::now() }
+        Self {
+            value,
+            unit,
+            acquired_at: crate::recording::Timestamp::now(),
+        }
     }
 
     pub fn no_data() -> Self {

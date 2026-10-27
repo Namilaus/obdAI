@@ -233,15 +233,30 @@ impl Test {
 
 impl OBD {
     /// Fallible scan used by recorded diagnostic evidence. Missing responses are never an empty success.
-    pub fn scan_trouble_codes(&mut self) -> Result<Vec<TroubleCode>, Error> { self.scan_codes(b"03", "43") }
-    pub fn scan_permanent_trouble_codes(&mut self) -> Result<Vec<TroubleCode>, Error> { self.scan_codes(b"0A", "4A") }
-    fn scan_codes(&mut self, command: &[u8;2], positive: &str) -> Result<Vec<TroubleCode>, Error> {
-        if !self.is_connected() { return Err(Error::NoConnection); }
-        let response=self.query(Command::new_svc(command));
-        let raw=response.full_response().ok_or(Error::NoData)?;
-        let mut clean=raw.replace(' ', "").replace('\r', "").replace('\n', "");
-        if !clean.contains(positive) || clean.contains("NODATA") { return Err(Error::InvalidResponse); }
-        Ok(Self::decode_trouble_codes(&mut clean))
+    pub fn scan_trouble_codes(&mut self) -> Result<Vec<TroubleCode>, Error> {
+        self.scan_codes(b"03", "43")
+    }
+    pub fn scan_permanent_trouble_codes(&mut self) -> Result<Vec<TroubleCode>, Error> {
+        self.scan_codes(b"0A", "4A")
+    }
+    fn scan_codes(&mut self, command: &[u8; 2], positive: &str) -> Result<Vec<TroubleCode>, Error> {
+        if !self.is_connected() {
+            return Err(Error::NoConnection);
+        }
+        let mut request = Command::new_svc(command);
+        self.send_command(&mut request)?;
+        let raw = if self.replay_requests {
+            self.get_recorded_response(&request)
+                .raw_response()
+                .ok_or(Error::NoData)?
+        } else {
+            self.read_until(b'>')?
+        };
+        if self.record_requests {
+            self.save_request(&request, &crate::Response::new(raw.clone(), raw.clone()));
+        }
+        let service = u8::from_str_radix(positive, 16).map_err(|_| Error::InvalidResponse)?;
+        super::dtc::decode_response(&raw, service)
     }
     /// Get the DTC that caused the freeze frame.
     pub fn get_freeze_frame_dtc(&mut self) -> Vec<TroubleCode> {
@@ -433,127 +448,10 @@ impl OBD {
     }
 
     pub fn decode_trouble_codes(response: &mut String) -> Vec<TroubleCode> {
-        println!(
-            "==> Decoding trouble codes. Raw response: '{}'",
-            response.escape_default()
-        );
-        let ecu_names = OBD::extract_ecu_names(response);
-        println!(" -> ECU names extracted: '{:?}'", ecu_names);
-        OBD::strip_ecu_names(response, &ecu_names);
-
-        let binding = response.replace("\r", "").replace(" ", "");
-        println!(" -> ECU names stripped, escaped, no spaces: '{binding}'");
-
-        let (sanitized, permanant) = {
-            if binding.contains("43") {
-                (
-                    binding
-                        .split("43")
-                        .filter_map(|chunk| {
-                            if chunk.len() >= 4 {
-                                Some(chunk.trim_end_matches("00"))
-                            } else {
-                                None
-                            }
-                        })
-                        .collect::<Vec<_>>()
-                        .join(""),
-                    false,
-                )
-            } else if binding.contains("4A") {
-                (
-                    binding
-                        .split("4A")
-                        .filter_map(|chunk| {
-                            if chunk.len() >= 4 {
-                                Some(chunk.trim_end_matches("00"))
-                            } else {
-                                None
-                            }
-                        })
-                        .collect::<Vec<_>>()
-                        .join(""),
-                    true,
-                )
-            } else {
-                return Vec::new();
-            }
-        };
-
-        println!("dbg: dtc response from ecu: {sanitized}");
-
-        if sanitized.to_lowercase().contains("nodata") {
-            return Vec::new();
-        }
-
-        let mut codes = Vec::new();
-
-        for chunk in sanitized.as_bytes().chunks(4) {
-            if chunk.len() != 4 {
-                break;
-            }
-
-            let as_string = String::from_utf8_lossy(chunk);
-            let a = as_string.chars().nth(0).unwrap_or('\0');
-            let b = as_string.chars().nth(1).unwrap_or('\0');
-            let c = as_string.chars().nth(2).unwrap_or('\0');
-            let d = as_string.chars().nth(3).unwrap_or('\0');
-            let left = u8::from_str_radix(&format!("{}{}", a, b), 16).unwrap_or_default();
-            let right = u8::from_str_radix(&format!("{}{}", c, d), 16).unwrap_or_default();
-
-            if left == 0x00 && right == 0x00 || (chunk == b"0000") {
-                break;
-            }
-
-            //println!("\nchunk: {:?}, {:?}. a: {a}, b: {b}, c: {c}, d: {d}", as_string, chunk);
-            let bit_7 = (left & 0b1000_0000) >> 7;
-            let bit_6 = (left & 0b0100_0000) >> 6;
-            let bit_5 = (left & 0b0010_0000) >> 5;
-            let bit_4 = (left & 0b0001_0000) >> 4;
-            let c2 = (bit_5 << 1) | bit_4;
-            let new_left = left & 0b00001111;
-            // println!("left: {left:b}, right: {right:b}");
-            // println!("bit 7: {bit_7:b}, bit 6: {bit_6:b}, bit 5: {bit_5:b}, bit 4: {bit_4:b}");
-            // println!("C2: {c2:b}");
-
-            let category = match (bit_7, bit_6) {
-                (0, 0) => TroubleCodeCategory::Powertrain,
-                (0, 1) => TroubleCodeCategory::Chassis,
-                (1, 0) => TroubleCodeCategory::Body,
-                (1, 1) => TroubleCodeCategory::Network,
-                _ => TroubleCodeCategory::Unknown,
-            };
-
-            let dtc_code = format!(
-                "{}{:01X}{:01X}{:02X}",
-                category.system_letter(),
-                c2,
-                new_left,
-                right
-            );
-
-            codes.push(TroubleCode::new(category, dtc_code, permanant));
-        }
-
-        codes
+        super::dtc::decode_response(response, 0x43)
+            .or_else(|_| super::dtc::decode_response(response, 0x4A))
+            .unwrap_or_default()
     }
-
-    pub fn obd_standards(&mut self) -> OBDStandard {
-        let response = self.query(Command::new_pid(b"011C"));
-        OBDStandard::from_u8(response.a_value() as u8)
-    }
-
-    pub fn aux_input_status(&mut self) -> AuxiliaryInputStatus {
-        let response = self.query(Command::new_pid(b"011E"));
-        let in_use = (response.a_value() as u32 & 1) != 0;
-
-        if in_use {
-            AuxiliaryInputStatus::InUse
-        } else {
-            AuxiliaryInputStatus::NotInUse
-        }
-    }
-
     pub fn distance_traveled_with_mil(&mut self) -> Scalar {
         self.query(Command::new_pid(b"0121")).map_no_data(|r| {
             Scalar::new(

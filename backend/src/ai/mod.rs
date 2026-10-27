@@ -1,17 +1,18 @@
-mod types;
-mod history;
+mod context;
 mod credentials;
+mod history;
+pub mod providers;
+mod service;
 mod settings;
 mod tools;
-mod context;
-mod service;
-pub mod providers;
-pub use types::*;
-pub use history::*;
+mod types;
+pub use context::*;
 pub use credentials::*;
+pub use history::*;
+pub use service::*;
 pub use settings::*;
 pub use tools::*;
-pub use context::*;
-pub use service::*;
-pub static AI_SERVICE:std::sync::OnceLock<std::sync::Arc<AssistantService>>=std::sync::OnceLock::new();
+pub use types::*;
+pub static AI_SERVICE: std::sync::OnceLock<std::sync::Arc<AssistantService>> =
+    std::sync::OnceLock::new();
 pub use providers::sse::*;

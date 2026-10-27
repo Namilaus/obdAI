@@ -50,7 +50,12 @@ pub fn critical_frequency_calls(window: &Arc<WebviewWindow>, obd: &Arc<Mutex<OBD
         let mut interval = time::interval(Duration::from_millis(500));
         loop {
             interval.tick().await;
-            if { let current=obd.lock().unwrap(); !current.is_connected() || current.generation()!=generation } { break; }
+            if {
+                let current = obd.lock().unwrap();
+                !current.is_connected() || current.generation() != generation
+            } {
+                break;
+            }
             if PAUSE_OBD_COUNT.load(Ordering::Relaxed) > 0 {
                 continue;
             }
@@ -86,7 +91,12 @@ pub fn high_frequency_calls(window: &Arc<WebviewWindow>, obd: &Arc<Mutex<OBD>>) 
         let mut cycle = 0;
         loop {
             interval.tick().await;
-            if { let current=obd.lock().unwrap(); !current.is_connected() || current.generation()!=generation } { break; }
+            if {
+                let current = obd.lock().unwrap();
+                !current.is_connected() || current.generation() != generation
+            } {
+                break;
+            }
             if PAUSE_OBD_COUNT.load(Ordering::Relaxed) > 0 {
                 continue;
             }
@@ -244,7 +254,12 @@ pub fn frequent_calls(window: &Arc<WebviewWindow>, obd: &Arc<Mutex<OBD>>) {
         let mut cycles = 0;
         loop {
             interval.tick().await;
-            if { let current=obd.lock().unwrap(); !current.is_connected() || current.generation()!=generation } { break; }
+            if {
+                let current = obd.lock().unwrap();
+                !current.is_connected() || current.generation() != generation
+            } {
+                break;
+            }
             if PAUSE_OBD_COUNT.load(Ordering::Relaxed) > 0 {
                 continue;
             }
@@ -296,7 +311,12 @@ pub fn less_frequent_calls(window: &Arc<WebviewWindow>, obd: &Arc<Mutex<OBD>>) {
         let mut cycles = 0;
         loop {
             interval.tick().await;
-            if { let current=obd.lock().unwrap(); !current.is_connected() || current.generation()!=generation } { break; }
+            if {
+                let current = obd.lock().unwrap();
+                !current.is_connected() || current.generation() != generation
+            } {
+                break;
+            }
             if PAUSE_OBD_COUNT.load(Ordering::Relaxed) > 0 {
                 continue;
             }
@@ -438,7 +458,12 @@ pub fn oxygen_sensors(window: &Arc<WebviewWindow>, obd: &Arc<Mutex<OBD>>) {
         let mut cycles = 0;
         loop {
             interval.tick().await;
-            if { let current=obd.lock().unwrap(); !current.is_connected() || current.generation()!=generation } { break; }
+            if {
+                let current = obd.lock().unwrap();
+                !current.is_connected() || current.generation() != generation
+            } {
+                break;
+            }
             if PAUSE_OBD_COUNT.load(Ordering::Relaxed) > 0 {
                 continue;
             }
@@ -565,7 +590,12 @@ pub fn custom_pid_calls(window: &Arc<WebviewWindow>, obd: &Arc<Mutex<OBD>>) {
         let mut interval = time::interval(Duration::from_secs(1));
         loop {
             interval.tick().await;
-            if { let current=obd.lock().unwrap(); !current.is_connected() || current.generation()!=generation } { break; }
+            if {
+                let current = obd.lock().unwrap();
+                !current.is_connected() || current.generation() != generation
+            } {
+                break;
+            }
             if PAUSE_OBD_COUNT.load(Ordering::Relaxed) > 0 {
                 continue;
             }
@@ -578,12 +608,24 @@ pub fn custom_pid_calls(window: &Arc<WebviewWindow>, obd: &Arc<Mutex<OBD>>) {
                     if let Ok(scalar) =
                         obd.calculate_dynamic_equation(&pid.equation, &pid.unit, &response)
                     {
-                        let definition = format!("{}:{}:{}:{}", pid.name, pid.command, pid.equation, pid.unit);
-                        obdium::recording::publish_scalar(&pid.name, &scalar, generation, Some(&definition));
+                        let definition =
+                            format!("{}:{}:{}:{}", pid.name, pid.command, pid.equation, pid.unit);
+                        obdium::recording::publish_scalar(
+                            &pid.name,
+                            &scalar,
+                            generation,
+                            Some(&definition),
+                        );
                         update_card(&window, &pid.name, scalar, 0);
                     } else {
-                        let definition = format!("{}:{}:{}:{}", pid.name, pid.command, pid.equation, pid.unit);
-                        obdium::recording::publish_scalar(&pid.name, &Scalar::no_data(), generation, Some(&definition));
+                        let definition =
+                            format!("{}:{}:{}:{}", pid.name, pid.command, pid.equation, pid.unit);
+                        obdium::recording::publish_scalar(
+                            &pid.name,
+                            &Scalar::no_data(),
+                            generation,
+                            Some(&definition),
+                        );
                     }
                 }
             }
@@ -620,5 +662,3 @@ pub fn once_calls(window: &Arc<WebviewWindow>, obd: &Arc<Mutex<OBD>>) {
         );
     });
 }
-
-

@@ -1,27 +1,49 @@
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
-use once_cell::sync::Lazy;
 
 pub static MONOTONIC_ORIGIN: Lazy<Instant> = Lazy::new(Instant::now);
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct Timestamp { pub utc_ms: i64, pub elapsed_ms: u64 }
+pub struct Timestamp {
+    pub utc_ms: i64,
+    pub elapsed_ms: u64,
+}
 impl Timestamp {
-    pub fn now() -> Self { Self { utc_ms: chrono::Utc::now().timestamp_millis(), elapsed_ms: MONOTONIC_ORIGIN.elapsed().as_millis() as u64 } }
+    pub fn now() -> Self {
+        Self {
+            utc_ms: chrono::Utc::now().timestamp_millis(),
+            elapsed_ms: MONOTONIC_ORIGIN.elapsed().as_millis() as u64,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum SourceMode { Live, Demo, Replay, FreezeFrame }
+pub enum SourceMode {
+    Live,
+    Demo,
+    Replay,
+    FreezeFrame,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum Availability { Valid, NoData, Error }
+pub enum Availability {
+    Valid,
+    NoData,
+    Error,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ConnectionContext { pub generation: u64, pub vehicle_id: String, pub source: SourceMode, pub simulated: bool }
+pub struct ConnectionContext {
+    pub generation: u64,
+    pub vehicle_id: String,
+    pub source: SourceMode,
+    pub simulated: bool,
+}
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -59,11 +81,36 @@ pub struct SessionMetadata {
     pub ended_at: Option<Timestamp>,
     pub reason: Option<String>,
     pub snapshot_count: u64,
+    #[serde(default)]
+    pub duration_ms: u64,
+    #[serde(default)]
+    pub storage_bytes: u64,
 }
 impl SessionMetadata {
-    pub fn new(vehicle_id: String, label: String, interval_seconds: u64, source: SourceMode, generation: u64, started_at: Timestamp) -> Self {
+    pub fn new(
+        vehicle_id: String,
+        label: String,
+        interval_seconds: u64,
+        source: SourceMode,
+        generation: u64,
+        started_at: Timestamp,
+    ) -> Self {
         let simulated = matches!(source, SourceMode::Demo | SourceMode::Replay);
-        Self { id: uuid::Uuid::new_v4().to_string(), vehicle_id, label, interval_seconds, source, simulated, generation, started_at, ended_at: None, reason: None, snapshot_count: 0 }
+        Self {
+            id: uuid::Uuid::new_v4().to_string(),
+            vehicle_id,
+            label,
+            interval_seconds,
+            source,
+            simulated,
+            generation,
+            started_at,
+            ended_at: None,
+            reason: None,
+            snapshot_count: 0,
+            duration_ms: 0,
+            storage_bytes: 256,
+        }
     }
 }
 
@@ -83,30 +130,63 @@ pub struct SampleRow {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SamplePage { pub rows: Vec<SampleRow>, pub next_cursor: Option<i64>, pub truncated: bool }
-
-#[derive(Debug,Clone,Serialize,Deserialize)]
-#[serde(rename_all="camelCase")]
-pub struct MetricSummary {
-    pub metric_id:String, pub name:String, pub unit:String,
-    pub min:Option<f64>, pub max:Option<f64>, pub mean:Option<f64>, pub first:Option<f64>, pub last:Option<f64>,
-    pub first_acquired_at:Option<Timestamp>, pub last_acquired_at:Option<Timestamp>,
-    pub unique_observations:u64, pub repeated_snapshots:u64, pub stale_snapshots:u64, pub unavailable_snapshots:u64,
+pub struct SamplePage {
+    pub rows: Vec<SampleRow>,
+    pub next_cursor: Option<i64>,
+    pub truncated: bool,
 }
 
-#[derive(Debug,Clone,Serialize,Deserialize)]
-#[serde(rename_all="camelCase")]
-pub struct DeletionPreview { pub recording_id:String, pub conversation_ids:Vec<String>, pub revision_token:String }
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MetricSummary {
+    pub metric_id: String,
+    pub name: String,
+    pub unit: String,
+    pub min: Option<f64>,
+    pub max: Option<f64>,
+    pub mean: Option<f64>,
+    pub first: Option<f64>,
+    pub last: Option<f64>,
+    pub first_acquired_at: Option<Timestamp>,
+    pub last_acquired_at: Option<Timestamp>,
+    pub unique_observations: u64,
+    pub repeated_snapshots: u64,
+    pub stale_snapshots: u64,
+    pub unavailable_snapshots: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeletionPreview {
+    pub recording_id: String,
+    pub conversation_ids: Vec<String>,
+    pub revision_token: String,
+}
 
 #[derive(Debug, Clone, Serialize, thiserror::Error)]
 #[error("{message}")]
-pub struct RecordingError { pub code: &'static str, pub message: String }
+pub struct RecordingError {
+    pub code: &'static str,
+    pub message: String,
+}
 impl RecordingError {
-    pub fn new(code: &'static str, message: impl Into<String>) -> Self { Self { code, message: message.into() } }
+    pub fn new(code: &'static str, message: impl Into<String>) -> Self {
+        Self {
+            code,
+            message: message.into(),
+        }
+    }
 }
 impl From<sqlite::Error> for RecordingError {
-    fn from(_: sqlite::Error) -> Self { Self::new("storage", "The local diagnostics database could not be read or written.") }
+    fn from(_: sqlite::Error) -> Self {
+        Self::new(
+            "storage",
+            "The local diagnostics database could not be read or written.",
+        )
+    }
 }
 impl From<serde_json::Error> for RecordingError {
-    fn from(_: serde_json::Error) -> Self { Self::new("storage", "Stored diagnostics data is invalid.") }
+    fn from(_: serde_json::Error) -> Self {
+        Self::new("storage", "Stored diagnostics data is invalid.")
+    }
 }
